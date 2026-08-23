@@ -1,0 +1,33 @@
+# P59 Web Presence Kit — Ashburn (OCI Virginia) TEST deployment.
+#
+# Serves testweb.neochipsolutions.com. New service on its own port; it displaces
+# nothing (platform rule 15). Loopback bind only — cloudflared connects from the
+# host, so the port never needs to face the VCN (Ashburn loopback bind standard).
+#
+#   docker compose -f docker-compose.ashburn.yml up -d --build
+#
+name: p59-testweb
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SITE_ENV: test
+    image: p59-testweb:latest
+    container_name: p59-testweb
+    restart: unless-stopped
+    environment:
+      TZ: America/New_York
+    ports:
+      - "127.0.0.1:8059:80"
+    labels:
+      com.neochip.project: "P59"
+      com.neochip.env: "test"
+      com.neochip.hostname: "testweb.neochipsolutions.com"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
