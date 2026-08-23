@@ -69,10 +69,19 @@
 
 /* ---- Proof strip ---- */
 .strip { background: var(--soft); border-bottom: 1px solid var(--line); }
-.strip .c { display: grid; gap: 1.5rem; padding-block: 2rem; }
-@media (min-width: 768px) { .strip .c { grid-template-columns: repeat(4, 1fr); } }
+.strip__row { display: grid; gap: 1.5rem; padding-block: 2rem 0; }
+@media (min-width: 768px) { .strip__row { grid-template-columns: repeat(4, 1fr); } }
+.strip__foot { padding-bottom: 1.5rem; }
 .stat b { display: block; font-size: 1.7rem; font-weight: 800; letter-spacing: -.03em; }
 .stat span { font-size: .82rem; color: var(--muted); font-weight: 600; }
+
+/* Provisional-figure marker. Visible but quiet — enough that nobody mistakes a
+   placeholder for a verified number during review. */
+.prov { color: var(--accent); font-size: .55em; font-weight: 700; margin-left: .15em; }
+.prov-note {
+  margin-top: 1rem; padding-top: .9rem; border-top: 1px dashed var(--line);
+  font-size: var(--fs-small); color: var(--muted); max-width: none;
+}
 
 /* ---- Hairline capability grid ---- */
 .grid {

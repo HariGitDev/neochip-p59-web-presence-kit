@@ -118,23 +118,29 @@ function QuickRFQ() {
 }
 
 function Proof({ proof }) {
-  // Renders real figures only. Placeholders stay visibly TBD until OQ-4 is answered.
-  const items = proof.length ? proof : [
-    { value: null, label: 'Response time' },
-    { value: null, label: 'Lines quoted' },
-    { value: null, label: 'Supplier network' },
-    { value: '100%', label: 'Documented on receipt' },
-  ]
+  if (!proof.length) return null
+  const anyProvisional = proof.some((s) => s.provisional)
   return (
     <div className="strip">
-      <div className="c">
-        {items.map((s) => (
+      <div className="c strip__row">
+        {proof.map((s) => (
           <div className="stat" key={s.label}>
-            {s.value ? <b>{s.value}</b> : <b><span className="tbd">{'{{TBD}}'}</span></b>}
+            <b>
+              {s.value}
+              {s.provisional && <sup className="prov" title="Provisional placeholder — not a verified figure">§</sup>}
+            </b>
             <span>{s.label}</span>
           </div>
         ))}
       </div>
+      {anyProvisional && (
+        <div className="c strip__foot">
+          <p className="prov-note">
+            <span className="prov">§</span> Provisional placeholder figures for layout review only —
+            not verified, and blocked from the public build.
+          </p>
+        </div>
+      )}
     </div>
   )
 }

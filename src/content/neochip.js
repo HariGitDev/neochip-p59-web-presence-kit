@@ -61,8 +61,18 @@ const content = {
     secondary: { label: 'See what we do', href: '#services' },
   },
 
-  // Renders nothing while empty. Real figures only — OQ-4.
-  proof: [],
+  /* PROVISIONAL FIGURES — Hari asked for dummy values 2026-08-23 so the proof band can be
+   * judged visually on the test site. These are NOT real and must not reach the public site.
+   *
+   * `provisional: true` is the enforcement hook: scripts/smoke-test.mjs fails under
+   * PROD_READY=1 if any provisional entry survives, so the prod image build cannot be
+   * produced while these are here. Replace the values and delete the flags together. */
+  proof: [
+    { value: '< 4 hrs', label: 'Typical RFQ response', provisional: true },
+    { value: '12,000+', label: 'Lines quoted annually', provisional: true },
+    { value: '300+', label: 'Vetted supply partners', provisional: true },
+    { value: '100%', label: 'Documented on receipt' },
+  ],
 
   /* ---- Core services: the AMPEL "Services and Solutions" breadth ---- */
   services: [
@@ -166,9 +176,9 @@ const content = {
   testimonials: [],
 
   contact: {
-    email: 'Ads@deepti.net',
-    phone: null,
-    address: null,
+    email: 'sales@neochipsolutions.com',
+    phone: null,    // guardrail: no phone until Hari supplies one
+    address: null,  // guardrail: no location claim
   },
 
   footerLegal: ['Privacy Policy', 'Terms & Conditions'],

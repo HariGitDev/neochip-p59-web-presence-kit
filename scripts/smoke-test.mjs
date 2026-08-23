@@ -50,14 +50,21 @@ for (const [name, re] of banned) {
   check(`guardrail — no ${name}`, !re.test(js))
 }
 
-// TBD tokens
+// Placeholder gates. Both must be clear before the public site can be built.
 const tbdCount = (js.match(/\{\{TBD/g) || []).length
+// Provisional figures are dummy numbers used for layout review on the test site.
+// They survive minification as the object key `provisional`.
+const provCount = (js.match(/provisional\s*:\s*!0|provisional\s*:\s*true/g) || []).length
+
 if (process.env.PROD_READY === '1') {
   check('no {{TBD}} tokens survive (PROD_READY)', tbdCount === 0, `found ${tbdCount}`)
+  check('no provisional figures survive (PROD_READY)', provCount === 0,
+        `found ${provCount} — replace the dummy stats in src/content with verified numbers and drop the provisional flags`)
 } else {
   console.log(`  NOTE  ${tbdCount} {{TBD}} token(s) present — expected pre-launch.`)
-  console.log('        Run with PROD_READY=1 to fail the build on these.')
-  if (tbdCount === 0) warns.push('no TBD tokens — is content finalised?')
+  console.log(`  NOTE  ${provCount} provisional figure(s) present — dummy stats for layout review.`)
+  console.log('        Run with PROD_READY=1 to fail the build on both.')
+  if (tbdCount === 0 && provCount === 0) warns.push('no placeholders left — is content finalised?')
 }
 
 console.log('')
