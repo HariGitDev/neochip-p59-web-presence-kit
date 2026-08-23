@@ -12,7 +12,8 @@ RUN npm run build \
 FROM nginx:1.27-alpine
 ENV TZ=America/New_York
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
-COPY deploy/nginx.conf /etc/nginx/conf.d/default.conf
+COPY deploy/headers.conf /etc/nginx/snippets/headers.conf
+COPY deploy/nginx.conf   /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
