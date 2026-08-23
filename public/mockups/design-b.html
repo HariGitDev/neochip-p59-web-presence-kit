@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Design B — NeoChip</title>
+<style>
+:root{
+--bg:#FFFDFB; --surface:#fff; --alt:#F6F1EA; --ink:#17130F; --muted:#6B6259; --line:#E6DCD0;
+--accent:#B8460E; --accent2:#8A6A2F; --deep:#17130F; --soft:#FCEEE0;
+--sans:"Inter",ui-sans-serif,system-ui,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--sans);line-height:1.6;overflow-x:hidden}
+img{max-width:100%}
+.c{max-width:1200px;margin:auto;padding:0 1.5rem}
+h1,h2,h3{margin:0;font-family:var(--sans);font-weight:800;letter-spacing:-.03em;line-height:1.08}
+h1{font-size:clamp(2.4rem,1.2rem+4.6vw,4.2rem)}h2{font-size:clamp(1.8rem,1.3rem+2vw,2.7rem)}h3{font-size:1.15rem;letter-spacing:-.01em}
+p{margin:0;max-width:66ch}
+.eb{font-size:.75rem;font-weight:700;letter-spacing:.16em;text-transform:uppercase;color:var(--accent);margin:0 0 .8rem}
+.btn{display:inline-flex;align-items:center;gap:.5rem;min-height:46px;padding:.8rem 1.4rem;border-radius:4px;font-weight:700;font-size:.95rem;text-decoration:none;border:1px solid transparent;cursor:pointer}
+.btn-p{background:var(--accent);color:#fff}.btn-g{border-color:#4A423B;color:#F6F1EA}
+.btn-o{border-color:var(--line);color:var(--ink)}
+/* header */
+header{background:var(--deep);color:#F6F1EA;position:sticky;top:0;z-index:9}
+.hd{display:flex;align-items:center;justify-content:space-between;min-height:64px;gap:1rem}
+.wm{font-weight:800;letter-spacing:-.03em;font-size:1.15rem;color:#fff;text-decoration:none}
+.wm i{font-style:normal;color:var(--accent)}
+nav{display:none;gap:1.6rem}@media(min-width:1024px){nav{display:flex}}
+nav a{color:#C4BAB0;text-decoration:none;font-size:.9rem;font-weight:600}
+/* ticker */
+.tick{background:#0E0B09;color:#9A8F84;font-size:.78rem;letter-spacing:.06em;padding:.5rem 0;border-bottom:1px solid #2A231E}
+.tick b{color:var(--accent);font-weight:700}
+/* hero */
+.hero{background:var(--deep);color:#F6F1EA;padding:clamp(3rem,7vw,5.5rem) 0 clamp(4rem,8vw,6rem)}
+.hg{display:grid;gap:2.5rem}@media(min-width:1024px){.hg{grid-template-columns:1.1fr .9fr;gap:4rem;align-items:center}}
+.hero p{color:#B9AFA5;font-size:1.1rem;margin-top:1.2rem}
+.acts{display:flex;flex-wrap:wrap;gap:.75rem;margin-top:2rem}
+/* spec panel */
+.spec{background:#221C18;border:1px solid #3A322C;border-radius:6px;overflow:hidden}
+.spec-h{background:#2C2520;padding:.85rem 1.1rem;font-size:.78rem;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#C9BFB4;border-bottom:1px solid #3A322C}
+.spec-b{padding:1.2rem}
+.f{display:flex;flex-direction:column;gap:.3rem;margin-bottom:.9rem}
+.f label{font-size:.75rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#9A8F84}
+.f input{font:inherit;min-height:44px;padding:.6rem .75rem;background:#161210;border:1px solid #3A322C;border-radius:4px;color:#F6F1EA;width:100%}
+/* stats strip */
+.strip{background:var(--soft);border-bottom:1px solid var(--line)}
+.strip .c{display:grid;gap:1.5rem;padding-block:2rem}@media(min-width:768px){.strip .c{grid-template-columns:repeat(4,1fr)}}
+.stat b{display:block;font-size:1.7rem;font-weight:800;letter-spacing:-.03em}
+.stat span{font-size:.82rem;color:var(--muted);font-weight:600}
+/* sections */
+section{padding-block:clamp(3.5rem,8vw,6rem)}
+.alt{background:var(--alt)}
+.sh{max-width:58ch;margin-bottom:2.5rem}
+.sh p{color:var(--muted);margin-top:.9rem}
+.g{display:grid;gap:1px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+@media(min-width:700px){.g{grid-template-columns:repeat(2,1fr)}}
+@media(min-width:1024px){.g{grid-template-columns:repeat(3,1fr)}}
+.cell{background:var(--surface);padding:1.7rem;display:flex;flex-direction:column;gap:.5rem}
+.cell .n{font-size:.72rem;font-weight:800;letter-spacing:.14em;color:var(--accent2)}
+.cell p{font-size:.94rem;color:var(--muted)}
+/* table-ish quality */
+.rows{border-top:1px solid var(--line)}
+.row{display:grid;gap:.35rem;padding:1.4rem 0;border-bottom:1px solid var(--line)}
+@media(min-width:768px){.row{grid-template-columns:4rem 14rem 1fr;gap:1.5rem;align-items:baseline}}
+.row .n{font-weight:800;color:var(--accent2);font-size:.8rem;letter-spacing:.1em}
+.row p{color:var(--muted);font-size:.94rem}
+/* tags */
+.tags{display:flex;flex-wrap:wrap;gap:.5rem;list-style:none;padding:0;margin:0}
+.tags li{border:1px solid var(--line);background:#fff;border-radius:4px;padding:.5rem .9rem;font-size:.88rem;font-weight:600}
+/* cta */
+.cta{background:var(--accent);color:#fff}
+.cta .c{display:grid;gap:1.5rem;align-items:center;padding-block:3rem}
+@media(min-width:900px){.cta .c{grid-template-columns:1fr auto}}
+.cta h2{color:#fff}.cta p{color:#FBDCC6;margin-top:.6rem}
+.cta .btn{background:#fff;color:var(--accent)}
+footer{background:var(--deep);color:#9A8F84;padding:3rem 0 1.5rem;font-size:.9rem}
+footer a{color:#C4BAB0;text-decoration:none}
+.fg{display:grid;gap:2rem}@media(min-width:768px){.fg{grid-template-columns:1.5fr 1fr 1fr}}
+.fg h4{color:#fff;font-size:.75rem;letter-spacing:.14em;text-transform:uppercase;margin:0 0 .8rem}
+.fl{list-style:none;padding:0;margin:0;display:grid;gap:.5rem}
+.fb{margin-top:2.5rem;padding-top:1.2rem;border-top:1px solid #2A231E;display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;font-size:.8rem}
+.tbd{background:#FDE68A;color:#78350F;border:1px dashed #B45309;padding:0 .3em;font-family:ui-monospace,monospace;font-size:.8em;border-radius:3px}
+</style></head><body>
+
+<div class="tick"><div class="c">INDEPENDENT DISTRIBUTOR &nbsp;·&nbsp; SHORTAGE &amp; OBSOLESCENCE SOURCING &nbsp;·&nbsp; <b>RFQ RESPONSE — {{TBD}}</b></div></div>
+<header><div class="c hd">
+  <a class="wm" href="#">NEO<i>CHIP</i></a>
+  <nav><a href="#">About</a><a href="#">Services</a><a href="#">Quality</a><a href="#">Products</a><a href="#">Industries</a><a href="#">Contact</a></nav>
+  <a class="btn btn-p" href="#" style="padding:.6rem 1.1rem;min-height:40px">Submit RFQ</a>
+</div></header>
+
+<div class="hero"><div class="c hg">
+  <div>
+    <p class="eb">Independent component sourcing</p>
+    <h1>Shortages don't wait for the authorized channel.</h1>
+    <p>We source hard-to-find, allocated, and end-of-life components — verified against documentation before they reach your line.</p>
+    <div class="acts"><a class="btn btn-p" href="#">Send a part number</a><a class="btn btn-g" href="#">How we verify parts</a></div>
+  </div>
+  <form class="spec" onsubmit="return false">
+    <div class="spec-h">Quick RFQ</div>
+    <div class="spec-b">
+      <div class="f"><label>Manufacturer part number</label><input placeholder="STM32F407VGT6"></div>
+      <div class="f"><label>Quantity</label><input placeholder="2,500"></div>
+      <div class="f"><label>Work email</label><input placeholder="you@company.com"></div>
+      <button class="btn btn-p" style="width:100%">Request a quote</button>
+    </div>
+  </form>
+</div></div>
+
+<div class="strip"><div class="c">
+  <div class="stat"><b class="tbd">{{TBD}}</b><span>Response time</span></div>
+  <div class="stat"><b class="tbd">{{TBD}}</b><span>Lines quoted</span></div>
+  <div class="stat"><b class="tbd">{{TBD}}</b><span>Supplier network</span></div>
+  <div class="stat"><b>100%</b><span>Documented on receipt</span></div>
+</div></div>
+
+<section><div class="c">
+  <div class="sh"><p class="eb">Services</p><h2>What we are actually useful for</h2>
+  <p>Six situations procurement teams call an independent distributor about.</p></div>
+  <div class="g">
+    <div class="cell"><span class="n">01</span><h3>Shortage sourcing</h3><p>Allocation and line-down situations where the authorized channel has no stock.</p></div>
+    <div class="cell"><span class="n">02</span><h3>Obsolescence &amp; EOL</h3><p>Last-time-buy support and substitute identification for end-of-life parts.</p></div>
+    <div class="cell"><span class="n">03</span><h3>Hard-to-find parts</h3><p>Long-tail part numbers, awkward quantities, date-code constraints.</p></div>
+    <div class="cell"><span class="n">04</span><h3>Excess inventory</h3><p>Recovery options for surplus stock sitting on your books.</p></div>
+    <div class="cell"><span class="n">05</span><h3>Documentation control</h3><p>Traceability paperwork checked before the shipment leaves.</p></div>
+    <div class="cell"><span class="n">06</span><h3>Shipment coordination</h3><p>Consolidation and routing scheduled against your build dates.</p></div>
+  </div>
+</div></section>
+
+<section class="alt"><div class="c">
+  <div class="sh"><p class="eb">Quality</p><h2>How we verify what we source</h2>
+  <p>A documented process, applied the same way every time.</p></div>
+  <div class="rows">
+    <div class="row"><span class="n">01</span><h3>Supplier vetting</h3><p>Source is qualified before a quote is issued. Unverifiable sources are declined, not caveated.</p></div>
+    <div class="row"><span class="n">02</span><h3>Documentation review</h3><p>Part number, date code, quantity, packaging and origin reconciled against the offer before purchase.</p></div>
+    <div class="row"><span class="n">03</span><h3>Inspection on receipt</h3><p>Incoming goods checked against purchase documentation and your requirement before release.</p></div>
+    <div class="row"><span class="n">04</span><h3>Escalation</h3><p>Anything that does not reconcile stops — and you hear about it before you plan around it.</p></div>
+  </div>
+</div></section>
+
+<section><div class="c">
+  <div class="sh"><p class="eb">Products</p><h2>Component categories</h2>
+  <p>Categories we quote against. No manufacturer line card until those relationships are verified.</p></div>
+  <ul class="tags">
+    <li>Integrated circuits</li><li>Microcontrollers &amp; processors</li><li>Memory</li><li>Discrete semiconductors</li>
+    <li>Passive components</li><li>Connectors</li><li>Power &amp; regulation</li><li>Sensors</li><li>Electromechanical</li>
+  </ul>
+</div></section>
+
+<div class="cta"><div class="c">
+  <div><h2>Send us the part number.</h2><p>We'll tell you what we can find, what it costs, and when — or that we can't.</p></div>
+  <a class="btn" href="#">Submit RFQ</a>
+</div></div>
+
+<footer><div class="c">
+  <div class="fg">
+    <div><a class="wm" href="#">NEO<i>CHIP</i></a><p style="margin-top:.8rem;color:#9A8F84">Independent electronic component sourcing.</p></div>
+    <div><h4>Site</h4><ul class="fl"><li><a href="#">About</a></li><li><a href="#">Services</a></li><li><a href="#">Quality</a></li><li><a href="#">Products</a></li></ul></div>
+    <div><h4>Contact</h4><ul class="fl"><li><a href="#">Ads@deepti.net</a></li><li><span class="tbd">{{TBD: phone}}</span></li></ul></div>
+  </div>
+  <div class="fb"><span>© 2026 NeoChip Solutions</span><span>Privacy · Terms</span></div>
+</div></footer>
+</body></html>
