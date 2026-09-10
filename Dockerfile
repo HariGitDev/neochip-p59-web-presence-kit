@@ -9,7 +9,7 @@ ARG SITE_ENV=test
 RUN npm run build \
  && if [ "$SITE_ENV" = "prod" ]; then PROD_READY=1 npm run test; else npm run test; fi
 
-FROM nginx:1.27-alpine
+FROM nginx:1.29-alpine
 ENV TZ=America/New_York
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 COPY deploy/headers.conf /etc/nginx/snippets/headers.conf
