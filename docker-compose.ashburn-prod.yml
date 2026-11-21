@@ -21,7 +21,7 @@ services:
     environment:
       TZ: America/New_York
     ports:
-      - "127.0.0.1:8061:80"
+      - "127.0.0.1:8056:80"
     labels:
       com.neochip.project: "P59"
       com.neochip.env: "prod"
