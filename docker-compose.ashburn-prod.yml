@@ -18,6 +18,9 @@ services:
     image: p59-web:latest
     container_name: p59-web
     restart: unless-stopped
+    # Ashburn's docker address pools are exhausted (cannot create a per-project network),
+    # so this single static container uses the default bridge. No sibling services here.
+    network_mode: bridge
     environment:
       TZ: America/New_York
     ports:
