@@ -1,0 +1,33 @@
+# P59 Web Presence Kit — Ashburn (OCI Virginia) PRODUCTION: neochipsolutions.com + www.
+#
+# Public build (SITE_ENV=prod): placeholders and unverified figures are compiled out and the
+# image build fails if any survive. New service on its own loopback port; displaces nothing.
+# The gated test copy (p59-testweb, :8059) keeps running alongside it.
+#
+#   docker compose -f docker-compose.ashburn-prod.yml up -d --build
+#
+name: p59-web
+
+services:
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        SITE_ENV: prod
+    image: p59-web:latest
+    container_name: p59-web
+    restart: unless-stopped
+    environment:
+      TZ: America/New_York
+    ports:
+      - "127.0.0.1:8061:80"
+    labels:
+      com.neochip.project: "P59"
+      com.neochip.env: "prod"
+      com.neochip.hostname: "neochipsolutions.com"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"

@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import content from './content/neochip.js'
+import content, { PUBLIC } from './content/neochip.js'
 
 /* Design B — Technical/Warm. Chosen by Hari 2026-08-23.
  * Structure is a deliberate blend of RH Electronics (numbered rigour, FAQ, downloads),
@@ -27,8 +27,8 @@ function Ticker() {
     <div className="tick">
       <div className="c">
         <span>INDEPENDENT DISTRIBUTOR</span><span>·</span>
-        <span>SOURCING · INVENTORY · LIFECYCLE</span><span>·</span>
-        <b>RFQ RESPONSE — <span className="tbd">{'{{TBD}}'}</span></b>
+        <span>SOURCING · INVENTORY · LIFECYCLE</span>
+        {!PUBLIC && <><span>·</span><b>RFQ RESPONSE — <span className="tbd">{'{{TBD}}'}</span></b></>}
       </div>
     </div>
   )
@@ -91,9 +91,18 @@ function Hero({ hero }) {
   )
 }
 
+function sendRfq(e) {
+  e.preventDefault()
+  const f = new FormData(e.currentTarget)
+  const body = `Part number: ${f.get('partNumber') || ''}
+Quantity: ${f.get('quantity') || ''}
+Reply to: ${f.get('email') || ''}`
+  window.location.href = `mailto:${content.contact.email}?subject=${encodeURIComponent('RFQ')}&body=${encodeURIComponent(body)}`
+}
+
 function QuickRFQ() {
   return (
-    <form className="spec" onSubmit={(e) => e.preventDefault()}>
+    <form className="spec" onSubmit={PUBLIC ? sendRfq : (e) => e.preventDefault()}>
       <div className="spec__h">Quick RFQ</div>
       <div className="spec__b">
         <div className="f">
@@ -109,9 +118,11 @@ function QuickRFQ() {
           <input id="em" name="email" type="email" placeholder="you@company.com" />
         </div>
         <button className="btn btn--p" style={{ width: '100%' }} type="submit">Request a quote</button>
-        <p className="note">
-          Not wired to a backend yet — <span className="tbd">{'{{TBD: RFQ delivery target — D-2}}'}</span>
-        </p>
+        {PUBLIC
+          ? <p className="note">Opens your email app with the request ready to send to {content.contact.email}.</p>
+          : <p className="note">
+              Not wired to a backend yet — <span className="tbd">{'{{TBD: RFQ delivery target — D-2}}'}</span>
+            </p>}
       </div>
     </form>
   )
@@ -193,12 +204,12 @@ function Quality({ quality }) {
         <ul className="tags" style={{ marginTop: '2rem' }}>
           {quality.badges.map((b) => <li key={b}>{b}</li>)}
         </ul>
-      ) : (
+      ) : (!PUBLIC && (
         <div className="empty" style={{ marginTop: '2rem' }}>
           Certification badges appear here once held. <span className="tbd">{'{{TBD: OQ-3}}'}</span> —
           nothing is displayed or implied until it is earned.
         </div>
-      )}
+      ))}
     </Section>
   )
 }
@@ -236,7 +247,7 @@ function Lines({ lines }) {
         ? <ul className="tags">{lines.items.map((i) => <li key={i}>{i}</li>)}</ul>
         : <div className="empty">
             No manufacturer line card is published. We quote across the open and independent
-            channel. <span className="tbd">{'{{TBD: verified lines}}'}</span>
+            channel. {!PUBLIC && <span className="tbd">{'{{TBD: verified lines}}'}</span>}
           </div>}
     </Section>
   )
@@ -288,7 +299,7 @@ function Insights({ insights }) {
   )
 }
 
-function CTA({ cta }) {
+function CTA({ cta, brochure }) {
   return (
     <div className="cta" id="rfq">
       <div className="c">
@@ -297,12 +308,13 @@ function CTA({ cta }) {
           <p>We&rsquo;ll tell you what we can find, what it costs, and when &mdash; or that we can&rsquo;t.</p>
         </div>
         <a className="btn" href="#contact">{cta.label}</a>
+        <a className="btn btn--g" href={brochure.href} download>{brochure.label}</a>
       </div>
     </div>
   )
 }
 
-function Footer({ brand, contact, footerLegal }) {
+function Footer({ brand, contact, footerLegal, brochure }) {
   return (
     <footer className="ftr" id="contact">
       <div className="c">
@@ -319,6 +331,7 @@ function Footer({ brand, contact, footerLegal }) {
               <li><a href="#about">About</a></li>
               <li><a href="#quality">Quality</a></li>
               <li><a href="#industries">Industries</a></li>
+              <li><a href={brochure.href} download>{brochure.label}</a></li>
             </ul>
           </div>
           <div>
@@ -334,8 +347,10 @@ function Footer({ brand, contact, footerLegal }) {
             <h4>Contact</h4>
             <ul className="fl">
               <li><a href={`mailto:${contact.email}`}>{contact.email}</a></li>
-              {!contact.phone && <li><span className="tbd">{'{{TBD: phone}}'}</span></li>}
-              {!contact.address && <li><span className="tbd">{'{{TBD: address}}'}</span></li>}
+              {contact.phone
+                ? <li><a href={`tel:+1${contact.phone.replace(/\D/g, '')}`}>{contact.phone}</a></li>
+                : !PUBLIC && <li><span className="tbd">{'{{TBD: phone}}'}</span></li>}
+              {!contact.address && !PUBLIC && <li><span className="tbd">{'{{TBD: address}}'}</span></li>}
             </ul>
           </div>
         </div>
@@ -376,9 +391,9 @@ export default function App() {
         <Process process={c.process} />
         <FAQ faq={c.faq} />
         <Insights insights={c.insights} />
-        <CTA cta={c.cta} />
+        <CTA cta={c.cta} brochure={c.brochure} />
       </main>
-      <Footer brand={c.brand} contact={c.contact} footerLegal={c.footerLegal} />
+      <Footer brand={c.brand} contact={c.contact} footerLegal={c.footerLegal} brochure={c.brochure} />
     </>
   )
 }

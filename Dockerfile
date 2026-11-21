@@ -6,8 +6,8 @@ RUN npm ci --no-audit --no-fund
 COPY . .
 # Fail the image build if any {{TBD}} token survives when SITE_ENV=prod.
 ARG SITE_ENV=test
-RUN npm run build \
- && if [ "$SITE_ENV" = "prod" ]; then PROD_READY=1 npm run test; else npm run test; fi
+RUN VITE_SITE_ENV=$SITE_ENV npm run build \
+ && if [ "$SITE_ENV" = "prod" ]; then rm -rf dist/mockups && PROD_READY=1 npm run test; else npm run test; fi
 
 FROM nginx:1.29-alpine
 ENV TZ=America/New_York

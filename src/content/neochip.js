@@ -14,6 +14,10 @@
  * visible on the page and cannot ship silently. See REQUIREMENTS.md §4.
  */
 
+/* Build flavour. 'prod' is the public site: placeholders and unverified figures are
+ * compiled out (the constant folds at build time). 'test' is the gated review copy. */
+export const PUBLIC = import.meta.env.VITE_SITE_ENV === 'prod'
+
 const content = {
   id: 'neochip',
   brand: {
@@ -67,7 +71,7 @@ const content = {
    * `provisional: true` is the enforcement hook: scripts/smoke-test.mjs fails under
    * PROD_READY=1 if any provisional entry survives, so the prod image build cannot be
    * produced while these are here. Replace the values and delete the flags together. */
-  proof: [
+  proof: PUBLIC ? [] : [
     { value: '< 4 hrs', label: 'Typical RFQ response', provisional: true },
     { value: '12,000+', label: 'Lines quoted annually', provisional: true },
     { value: '300+', label: 'Vetted supply partners', provisional: true },
@@ -177,9 +181,11 @@ const content = {
 
   contact: {
     email: 'sales@neochipsolutions.com',
-    phone: null,    // guardrail: no phone until Hari supplies one
+    phone: '704.259.4048',  // supplied by Hari 2026-11-21 (brochure back cover)
     address: null,  // guardrail: no location claim
   },
+
+  brochure: { label: 'Download brochure (PDF)', href: '/NeoChip-Solutions-Brochure.pdf' },
 
   footerLegal: ['Privacy Policy', 'Terms & Conditions'],
 }
