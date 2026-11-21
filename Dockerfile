@@ -14,8 +14,6 @@ ENV TZ=America/New_York
 RUN ln -snf /usr/share/zoneinfo/$TZ /etc/localtime && echo $TZ > /etc/timezone
 ARG SITE_ENV=test
 COPY deploy/headers.conf /etc/nginx/snippets/headers.conf
-# Public site must be indexable; the test copy stays noindex. noai/noimageai stay in both.
-RUN if [ "$SITE_ENV" = "prod" ]; then sed -i 's/noindex, nofollow, noarchive, //' /etc/nginx/snippets/headers.conf; fi
 COPY deploy/nginx.conf   /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
 COPY deploy/robots.prod.txt /tmp/robots.prod.txt

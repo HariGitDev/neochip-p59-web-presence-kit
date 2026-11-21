@@ -52,7 +52,7 @@ const content = {
     { label: 'Quality', href: '#quality' },
     { label: 'Industries', href: '#industries' },
     { label: 'Insights', href: '#insights' },
-    { label: 'Contact', href: '#contact' },
+    { label: 'Contact', href: '#top' },
   ],
   cta: { label: 'Submit RFQ', href: '#rfq' },
 
@@ -180,8 +180,9 @@ const content = {
   testimonials: [],
 
   contact: {
-    email: 'sales@neochipsolutions.com',
-    phone: '704.259.4048',  // supplied by Hari 2026-11-21 (brochure back cover)
+    // Hari 2026-11-21: no email address or phone number on the public site; visitors use the contact form.
+    email: null,
+    phone: null,
     address: null,  // guardrail: no location claim
   },
 

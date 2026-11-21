@@ -91,38 +91,49 @@ function Hero({ hero }) {
   )
 }
 
-function sendRfq(e) {
-  e.preventDefault()
-  const f = new FormData(e.currentTarget)
-  const body = `Part number: ${f.get('partNumber') || ''}
-Quantity: ${f.get('quantity') || ''}
-Reply to: ${f.get('email') || ''}`
-  window.location.href = `mailto:${content.contact.email}?subject=${encodeURIComponent('RFQ')}&body=${encodeURIComponent(body)}`
-}
+const LOADED_AT = Date.now()
 
 function QuickRFQ() {
+  const [state, setState] = useState('idle') // idle | sending | ok | error
+  async function submit(e) {
+    e.preventDefault()
+    if (!PUBLIC) return
+    const f = Object.fromEntries(new FormData(e.currentTarget).entries())
+    setState('sending')
+    try {
+      const r = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...f, t: LOADED_AT }),
+      })
+      setState(r.ok ? 'ok' : 'error')
+    } catch { setState('error') }
+  }
+  if (state === 'ok') {
+    return (
+      <div className="spec" role="status">
+        <div className="spec__h">Thank you</div>
+        <div className="spec__b"><p>Your request has been received. We will reply to the address you gave.</p></div>
+      </div>
+    )
+  }
   return (
-    <form className="spec" onSubmit={PUBLIC ? sendRfq : (e) => e.preventDefault()}>
-      <div className="spec__h">Quick RFQ</div>
+    <form className="spec" onSubmit={submit}>
+      <div className="spec__h">Contact / RFQ</div>
       <div className="spec__b">
-        <div className="f">
-          <label htmlFor="pn">Manufacturer part number</label>
-          <input id="pn" name="partNumber" placeholder="STM32F407VGT6" />
+        <div className="f"><label htmlFor="nm">Your name</label><input id="nm" name="name" required maxLength={100} autoComplete="name" /></div>
+        <div className="f"><label htmlFor="em">Work email</label><input id="em" name="email" type="email" required maxLength={200} autoComplete="email" placeholder="you@company.com" /></div>
+        <div className="f"><label htmlFor="pn">Manufacturer part number</label><input id="pn" name="part_number" maxLength={100} placeholder="STM32F407VGT6" /></div>
+        <div className="f"><label htmlFor="qty">Quantity</label><input id="qty" name="quantity" inputMode="numeric" maxLength={40} placeholder="2,500" /></div>
+        <div className="f"><label htmlFor="msg">Message</label><textarea id="msg" name="message" required maxLength={4000} rows={3} placeholder="Part numbers, target date, or your BOM details" /></div>
+        <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px' }}>
+          <label>Leave blank<input name="website" tabIndex={-1} autoComplete="off" /></label>
         </div>
-        <div className="f">
-          <label htmlFor="qty">Quantity</label>
-          <input id="qty" name="quantity" inputMode="numeric" placeholder="2,500" />
-        </div>
-        <div className="f">
-          <label htmlFor="em">Work email</label>
-          <input id="em" name="email" type="email" placeholder="you@company.com" />
-        </div>
-        <button className="btn btn--p" style={{ width: '100%' }} type="submit">Request a quote</button>
-        {PUBLIC
-          ? <p className="note">Opens your email app with the request ready to send to {content.contact.email}.</p>
-          : <p className="note">
-              Not wired to a backend yet — <span className="tbd">{'{{TBD: RFQ delivery target — D-2}}'}</span>
-            </p>}
+        <button className="btn btn--p" style={{ width: '100%' }} type="submit" disabled={state === 'sending'}>
+          {state === 'sending' ? 'Sending…' : 'Send request'}
+        </button>
+        {state === 'error' && <p className="note" role="alert">Sorry, that did not send. Please try again in a few minutes.</p>}
+        {!PUBLIC && <p className="note">Test copy — submissions are not delivered. <span className="tbd">{'{{TBD: RFQ delivery target — D-2}}'}</span></p>}
       </div>
     </form>
   )
@@ -307,7 +318,7 @@ function CTA({ cta, brochure }) {
           <h2>Send us the part number.</h2>
           <p>We&rsquo;ll tell you what we can find, what it costs, and when &mdash; or that we can&rsquo;t.</p>
         </div>
-        <a className="btn" href="#contact">{cta.label}</a>
+        <a className="btn" href="#top">{cta.label}</a>
         <a className="btn btn--g" href={brochure.href} download>{brochure.label}</a>
       </div>
     </div>
@@ -316,7 +327,7 @@ function CTA({ cta, brochure }) {
 
 function Footer({ brand, contact, footerLegal, brochure }) {
   return (
-    <footer className="ftr" id="contact">
+    <footer className="ftr" id="site-footer">
       <div className="c">
         <div className="ftr__g">
           <div>
@@ -346,10 +357,8 @@ function Footer({ brand, contact, footerLegal, brochure }) {
           <div>
             <h4>Contact</h4>
             <ul className="fl">
-              <li><a href={`mailto:${contact.email}`}>{contact.email}</a></li>
-              {contact.phone
-                ? <li><a href={`tel:+1${contact.phone.replace(/\D/g, '')}`}>{contact.phone}</a></li>
-                : !PUBLIC && <li><span className="tbd">{'{{TBD: phone}}'}</span></li>}
+              <li><a href="#top">Use the contact form</a></li>
+              {!PUBLIC && <li><span className="tbd">{'{{TBD: phone}}'}</span></li>}
               {!contact.address && !PUBLIC && <li><span className="tbd">{'{{TBD: address}}'}</span></li>}
             </ul>
           </div>
