@@ -1,0 +1,6 @@
+[Unit]
+Description=P59 web origin watchdog (stops the connector if an origin is down)
+
+[Service]
+Type=oneshot
+ExecStart=/opt/neochip-solutions/Projects/59-Web-Presence-Kit/deploy/web-watchdog.sh

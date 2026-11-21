@@ -6,10 +6,10 @@ tunnel: f376711f-6a38-4851-8fd7-a9deb14340ee
 credentials-file: /etc/cloudflared/f376711f-6a38-4851-8fd7-a9deb14340ee.json
 ingress:
   - hostname: neochipsolutions.com
-    path: ^/api/
+    path: ^/api(/.*)?$
     service: http://127.0.0.1:8060
   - hostname: www.neochipsolutions.com
-    path: ^/api/
+    path: ^/api(/.*)?$
     service: http://127.0.0.1:8060
   - hostname: neochipsolutions.com
     service: http://127.0.0.1:8056
