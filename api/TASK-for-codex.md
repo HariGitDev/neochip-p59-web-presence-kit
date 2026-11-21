@@ -1,0 +1,16 @@
+You are building ONE new directory, `api/`, inside this repo (neochip-p59-web-presence-kit). Touch NOTHING outside `api/` (another agent is editing src/, deploy/, Dockerfile in parallel). Do not read files outside this repo; the workstation policy files are not available to you, and this brief replaces them. No network access needed except pip for tests. Keep it small; stop when done and report briefly. Budget: ~25k tokens.
+
+Goal: a tiny contact-form backend for the public NeoChip website. The public site must not show an email address or phone number; visitors use a form and this API receives it.
+
+Build in `api/`:
+- `app.py` (FastAPI) with `POST /api/contact` and `GET /healthz`.
+- JSON body: name (req, <=100), company (<=150), email (req, valid-looking, <=200), part_number (<=100), quantity (<=40), message (req, <=4000), website (honeypot, must be empty), t (client page-load timestamp in ms).
+- Silent-accept-and-drop (return the normal 200 success body, store nothing) when the honeypot is filled or the form was submitted <3 seconds after t. Real validation failures return 422 with a short generic message.
+- Reject bodies over 16 KB (413). Rate limit per client IP: 5 submissions/hour and 20/day, in memory; client IP = CF-Connecting-IP header if present else the peer address. Over limit -> 429.
+- Durable storage: append each accepted submission as one JSON line to `${DATA_DIR:-/data}/submissions.jsonl` with id (uuid4), UTC timestamp, fields, and client IP hash (sha256 of IP + SALT env, never the raw IP). File must be flushed/fsynced; a failed write must return 500 and NOT claim success.
+- Notification after a successful store (failures here must never fail the request; log and continue): (a) if SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD, MAIL_FROM and CONTACT_TO are all set, send ONE plain-text email to exactly one recipient (reject any comma/semicolon/newline in CONTACT_TO and in header-bound values; set Reply-To to the submitter only after validating it has no CR/LF). (b) if NTFY_URL is set, POST a short text like "New website enquiry <id8>" with no personal data. Unconfigured channels are skipped.
+- Never log personal data (no names, emails, messages) — log ids only.
+- Security: no CORS wildcard; allow only the origins in ALLOWED_ORIGINS env (comma list; default https://neochipsolutions.com,https://www.neochipsolutions.com,https://testweb.neochipsolutions.com). Reject requests whose Origin header is present and not allowed.
+- `requirements.txt` (pinned fastapi, uvicorn, pydantic[email] or email-validator as needed; use versions that exist), `Dockerfile` (python:3.12-slim, non-root user, runs uvicorn on 0.0.0.0:8060, HEALTHCHECK on /healthz, /data as a volume), `.dockerignore`.
+- `tests/test_contact.py` with pytest + httpx TestClient covering: success stores a line; honeypot drops silently; too-fast drops silently; validation 422; 413; rate limit 429; origin rejection; header-injection attempt in name/email is rejected or neutralised; storage failure -> 500; notification failure does not fail the request. Run the tests and report the real result.
+- `README.md` (short): env vars table, how to run tests, how it is deployed (container on 127.0.0.1:8060, cloudflared routes /api/* to it).
