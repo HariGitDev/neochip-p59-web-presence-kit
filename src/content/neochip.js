@@ -186,7 +186,7 @@ const content = {
     address: null,  // guardrail: no location claim
   },
 
-  brochure: { label: 'Download brochure (PDF)', href: '/NeoChip-Solutions-Brochure.pdf' },
+  brochure: { label: 'Download brochure (PDF)', href: '/NeoChip-Solutions-Brochure-Web.pdf' },
 
   footerLegal: ['Privacy Policy', 'Terms & Conditions'],
 }
