@@ -319,7 +319,6 @@ function CTA({ cta, brochure }) {
           <p>We&rsquo;ll tell you what we can find, what it costs, and when &mdash; or that we can&rsquo;t.</p>
         </div>
         <a className="btn" href="#top">{cta.label}</a>
-        <a className="btn btn--g" href={brochure.href} download>{brochure.label}</a>
       </div>
     </div>
   )
@@ -342,7 +341,6 @@ function Footer({ brand, contact, footerLegal, brochure }) {
               <li><a href="#about">About</a></li>
               <li><a href="#quality">Quality</a></li>
               <li><a href="#industries">Industries</a></li>
-              <li><a href={brochure.href} download>{brochure.label}</a></li>
             </ul>
           </div>
           <div>

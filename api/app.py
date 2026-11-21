@@ -1,268 +1,237 @@
-"""NeoChip contact-form backend. POST /api/contact, GET /healthz.
-
-Never logs personal data (ids only). See README.md for env vars.
-"""
-import asyncio
 import hashlib
-import ipaddress
 import json
 import logging
 import os
-import re
 import smtplib
-import threading
+import ssl
 import time
-import urllib.request
-import uuid
-from collections import defaultdict, deque
+from collections import OrderedDict, deque
 from datetime import datetime, timezone
 from email.message import EmailMessage
+from pathlib import Path
+from threading import Lock
+from urllib.request import Request as OutboundRequest, urlopen
+from uuid import uuid4
 
-from fastapi import BackgroundTasks, FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from pydantic import BaseModel, EmailStr, ValidationError, field_validator
+from pydantic import BaseModel, EmailStr, Field, StrictInt
+from starlette.concurrency import run_in_threadpool
 
-log = logging.getLogger("contact")
-
-MAX_BODY = 16 * 1024
-MIN_FILL_MS = 3000
-HOUR, DAY = 3600, 86400
-LIMIT_HOUR, LIMIT_DAY = 5, 20
+BODY_LIMIT = 16 * 1024
+HOUR = 3600
+DAY = 24 * HOUR
 DEFAULT_ORIGINS = (
     "https://neochipsolutions.com,https://www.neochipsolutions.com,"
     "https://testweb.neochipsolutions.com"
 )
-_CTRL = re.compile(r"[\x00-\x08\x0b-\x1f\x7f  ]")  # all control chars except \t and \n
-_HDR_BAD = re.compile(r"[\r\n\x00]")
-
-app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
-
-_hits: dict = defaultdict(deque)
-_hits_lock = threading.Lock()
-_write_lock = threading.Lock()
+SMTP_SETTINGS = (
+    "SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM", "CONTACT_TO"
+)
+logger = logging.getLogger("uvicorn.error")
 
 
 class Contact(BaseModel):
-    name: str
-    company: str = ""
-    email: EmailStr
-    part_number: str = ""
-    quantity: str = ""
-    message: str
-    t: float
-
-    model_config = {"extra": "ignore", "str_strip_whitespace": True}
-
-    @field_validator("name", "company", "part_number", "quantity", mode="after")
-    @classmethod
-    def _single_line(cls, v: str) -> str:
-        if _HDR_BAD.search(v) or _CTRL.search(v):
-            raise ValueError("bad characters")
-        return v
-
-    @field_validator("message", mode="after")
-    @classmethod
-    def _msg(cls, v: str) -> str:
-        if "\x00" in v:
-            raise ValueError("bad characters")
-        return v
-
-    @field_validator("name")
-    @classmethod
-    def _name(cls, v):
-        if not v or len(v) > 100:
-            raise ValueError("name")
-        return v
-
-    @field_validator("company")
-    @classmethod
-    def _company(cls, v):
-        if len(v) > 150:
-            raise ValueError("company")
-        return v
-
-    @field_validator("email")
-    @classmethod
-    def _email(cls, v):
-        if len(v) > 200:
-            raise ValueError("email")
-        return v
-
-    @field_validator("part_number")
-    @classmethod
-    def _pn(cls, v):
-        if len(v) > 100:
-            raise ValueError("part_number")
-        return v
-
-    @field_validator("quantity")
-    @classmethod
-    def _qty(cls, v):
-        if len(v) > 40:
-            raise ValueError("quantity")
-        return v
-
-    @field_validator("message")
-    @classmethod
-    def _message(cls, v):
-        if not v or len(v) > 4000:
-            raise ValueError("message")
-        return v
+    name: str = Field(min_length=1, max_length=100)
+    company: str = Field(default="", max_length=150)
+    email: EmailStr = Field(max_length=200)
+    part_number: str = Field(default="", max_length=100)
+    quantity: str = Field(default="", max_length=40)
+    message: str = Field(min_length=1, max_length=4000)
+    website: str = ""
+    t: StrictInt
 
 
-def _err(status: int, msg: str) -> JSONResponse:
-    return JSONResponse({"ok": False, "error": msg}, status_code=status)
+class RateLimiter:
+    def __init__(self):
+        self.clients: OrderedDict[str, deque[float]] = OrderedDict()
+
+    def allow(self, client: str) -> bool:
+        # Called on the event loop, without yielding while updating the counters.
+        now = time.monotonic()
+        while self.clients:
+            oldest = next(iter(self.clients.values()))
+            if oldest[-1] > now - DAY:
+                break
+            self.clients.popitem(last=False)
+
+        attempts = self.clients.setdefault(client, deque())
+        while attempts and attempts[0] <= now - DAY:
+            attempts.popleft()
+        if len(attempts) >= 20 or sum(at > now - HOUR for at in attempts) >= 5:
+            return False
+        attempts.append(now)
+        self.clients.move_to_end(client)
+        return True
 
 
-def _ok() -> JSONResponse:
-    return JSONResponse({"ok": True})
-
-
-def _allowed_origins() -> set:
-    raw = os.environ.get("ALLOWED_ORIGINS", DEFAULT_ORIGINS)
-    return {o.strip().rstrip("/").lower() for o in raw.split(",") if o.strip()}
-
-
-def _client_ip(request: Request) -> str:
-    cf = request.headers.get("cf-connecting-ip", "").strip()
-    if cf:
+def append_submission(path: Path, entry: dict) -> None:
+    line = (json.dumps(entry) + "\n").encode("utf-8")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("ab", buffering=0) as output:
+        start = output.seek(0, os.SEEK_END)
         try:
-            return str(ipaddress.ip_address(cf))
-        except ValueError:
-            pass
-    return request.client.host if request.client else "unknown"
+            if output.write(line) != len(line):
+                raise OSError("Incomplete submission write")
+            output.flush()
+            os.fsync(output.fileno())
+        except OSError:
+            output.truncate(start)
+            os.fsync(output.fileno())
+            raise
 
 
-def _rate_limited(ip: str) -> bool:
-    now = time.time()
-    with _hits_lock:
-        q = _hits[ip]
-        while q and q[0] <= now - DAY:
-            q.popleft()
-        if len(q) >= LIMIT_DAY or sum(1 for x in q if x > now - HOUR) >= LIMIT_HOUR:
-            return True
-        q.append(now)
-        if len(_hits) > 50000:  # bound memory
-            for k in [k for k, v in _hits.items() if not v or v[-1] <= now - DAY]:
-                _hits.pop(k, None)
-        return False
+def send_email(settings: list[str], entry: dict) -> None:
+    host, port, user, password, sender, recipient = settings
+    reply_to = entry["email"]
+    if any(char in value for value in (sender, recipient, reply_to) for char in ",;\r\n"):
+        raise ValueError("Invalid mail header")
 
-
-def _store(record: dict) -> None:
-    d = os.environ.get("DATA_DIR", "/data")
-    os.makedirs(d, exist_ok=True)
-    line = json.dumps(record, ensure_ascii=False) + "\n"
-    with _write_lock:
-        with open(os.path.join(d, "submissions.jsonl"), "a", encoding="utf-8") as f:
-            f.write(line)
-            f.flush()
-            os.fsync(f.fileno())
-
-
-def _send_email(rec: dict) -> None:
-    keys = ("SMTP_HOST", "SMTP_PORT", "SMTP_USER", "SMTP_PASSWORD", "MAIL_FROM", "CONTACT_TO")
-    cfg = {k: os.environ.get(k, "") for k in keys}
-    if not all(cfg.values()):
-        return
-    for k in ("CONTACT_TO", "MAIL_FROM", "SMTP_HOST"):
-        if re.search(r"[,;\s<>\r\n]", cfg[k]):
-            log.error("email skipped: invalid %s", k)
-            return
-    f = rec["fields"]
-    msg = EmailMessage()
-    msg["Subject"] = f"New website enquiry {rec['id'][:8]}"
-    msg["From"] = cfg["MAIL_FROM"]
-    msg["To"] = cfg["CONTACT_TO"]
-    if not _HDR_BAD.search(f["email"]):
-        msg["Reply-To"] = f["email"]
-    msg.set_content(
-        f"Name: {f['name']}\nCompany: {f['company']}\nEmail: {f['email']}\n"
-        f"Part number: {f['part_number']}\nQuantity: {f['quantity']}\n"
-        f"Received: {rec['ts']}\nID: {rec['id']}\n\n{f['message']}\n"
+    mail = EmailMessage()
+    mail["From"] = sender
+    mail["To"] = recipient
+    mail["Reply-To"] = reply_to
+    for header in ("From", "To", "Reply-To"):
+        addresses = mail[header].addresses
+        if len(addresses) != 1 or mail[header].defects or not addresses[0].domain:
+            raise ValueError("Invalid mail address")
+    mail["Subject"] = "New NeoChip website enquiry"
+    mail.set_content(
+        "\n".join(
+            f"{label}: {entry[field]}"
+            for label, field in (
+                ("Name", "name"), ("Company", "company"), ("Email", "email"),
+                ("Part number", "part_number"), ("Quantity", "quantity"),
+                ("Message", "message"),
+            )
+        )
     )
-    port = int(cfg["SMTP_PORT"])
-    if port == 465:
-        s = smtplib.SMTP_SSL(cfg["SMTP_HOST"], port, timeout=15)
+    context = ssl.create_default_context()
+    smtp_port = int(port)
+    if smtp_port == 465:
+        client = smtplib.SMTP_SSL(host, smtp_port, timeout=5, context=context)
     else:
-        s = smtplib.SMTP(cfg["SMTP_HOST"], port, timeout=15)
-    with s:
-        if port != 465:
-            s.starttls()
-        s.login(cfg["SMTP_USER"], cfg["SMTP_PASSWORD"])
-        s.send_message(msg, to_addrs=[cfg["CONTACT_TO"]])
+        client = smtplib.SMTP(host, smtp_port, timeout=5)
+    with client:
+        if smtp_port != 465:
+            client.starttls(context=context)
+        client.login(user, password)
+        client.send_message(
+            mail, from_addr=mail["From"].addresses[0].addr_spec,
+            to_addrs=[mail["To"].addresses[0].addr_spec],
+        )
 
 
-def _ntfy(rec: dict) -> None:
-    url = os.environ.get("NTFY_URL", "")
-    if not url:
-        return
-    req = urllib.request.Request(
-        url, data=f"New website enquiry {rec['id'][:8]}".encode(), method="POST"
+def send_ntfy(url: str, submission_id: str) -> None:
+    request = OutboundRequest(
+        url,
+        data=f"New website enquiry {submission_id[:8]}".encode("utf-8"),
+        headers={"Content-Type": "text/plain; charset=utf-8"},
+        method="POST",
     )
-    urllib.request.urlopen(req, timeout=10).close()
+    with urlopen(request, timeout=5):
+        pass
 
 
-def _notify(rec: dict) -> None:
-    for fn in (_send_email, _ntfy):
+def notify(entry: dict) -> None:
+    settings = [os.getenv(key, "") for key in SMTP_SETTINGS]
+    if all(settings):
         try:
-            fn(rec)
-        except Exception as e:  # never fail the request; no personal data in logs
-            log.error("notify %s failed for %s: %s", fn.__name__, rec["id"][:8], type(e).__name__)
+            send_email(settings, entry)
+        except Exception:
+            logger.warning("Email notification failed for submission %s", entry["id"])
+    url = os.getenv("NTFY_URL")
+    if url:
+        try:
+            send_ntfy(url, entry["id"])
+        except Exception:
+            logger.warning("ntfy notification failed for submission %s", entry["id"])
 
 
-@app.get("/healthz")
-async def healthz():
-    return {"ok": True}
+def create_app() -> FastAPI:
+    app = FastAPI(docs_url=None, redoc_url=None, openapi_url=None)
+    origins = [
+        origin.strip()
+        for origin in os.getenv("ALLOWED_ORIGINS", DEFAULT_ORIGINS).split(",")
+        if origin.strip() and origin.strip() != "*"
+    ]
+    app.add_middleware(
+        CORSMiddleware, allow_origins=origins, allow_methods=["GET", "POST"],
+        allow_headers=["Content-Type"],
+    )
+    limiter = RateLimiter()
+    store_lock = Lock()
+    path = Path(os.getenv("DATA_DIR") or "/data") / "submissions.jsonl"
+    salt = os.getenv("SALT", "")
+
+    @app.middleware("http")
+    async def reject_disallowed_origins(request: Request, call_next):
+        if any(origin not in origins for origin in request.headers.getlist("origin")):
+            return JSONResponse({"detail": "Origin not allowed"}, status_code=403)
+        return await call_next(request)
+
+    @app.get("/healthz")
+    async def health():
+        return {"ok": True}
+
+    @app.post("/api/contact")
+    async def contact(request: Request):
+        body = bytearray()
+        async for chunk in request.stream():
+            if len(body) + len(chunk) > BODY_LIMIT:
+                raise HTTPException(413, "Request too large")
+            body.extend(chunk)
+
+        ip = request.headers.get("CF-Connecting-IP")
+        if ip is None:
+            ip = request.client.host if request.client else ""
+        ip_hash = hashlib.sha256((ip + salt).encode("utf-8")).hexdigest()
+        if not limiter.allow(ip_hash):
+            raise HTTPException(429, "Too many submissions")
+
+        try:
+            payload = json.loads(body)
+            if not isinstance(payload, dict):
+                raise ValueError("Expected JSON object")
+            if isinstance(payload.get("website"), str) and payload["website"]:
+                return {"ok": True}
+            timestamp = payload.get("t")
+            if type(timestamp) is int and time.time_ns() // 1_000_000 - timestamp < 3000:
+                return {"ok": True}
+            if any(
+                isinstance(payload.get(field), str)
+                and ("\r" in payload[field] or "\n" in payload[field])
+                for field in ("name", "email")
+            ):
+                raise ValueError("Invalid header characters")
+            form = Contact.model_validate(payload)
+            if not form.name.strip() or not form.message.strip() or len(payload["email"]) > 200:
+                raise ValueError("Invalid contact fields")
+        except (ValueError, RecursionError):
+            raise HTTPException(422, "Invalid submission") from None
+
+        entry = {
+            "id": str(uuid4()),
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+            **form.model_dump(exclude={"website", "t"}),
+            "ip_hash": ip_hash,
+        }
+
+        def store():
+            with store_lock:
+                append_submission(path, entry)
+
+        try:
+            await run_in_threadpool(store)
+        except OSError:
+            logger.error("Storage failed for submission %s", entry["id"])
+            raise HTTPException(500, "Could not store submission") from None
+
+        await run_in_threadpool(notify, entry)
+        return {"ok": True}
+
+    return app
 
 
-@app.post("/api/contact")
-async def contact(request: Request, background: BackgroundTasks):
-    origin = request.headers.get("origin")
-    if origin is not None and origin.rstrip("/").lower() not in _allowed_origins():
-        return _err(403, "Forbidden")
-
-    cl = request.headers.get("content-length")
-    if cl and cl.isdigit() and int(cl) > MAX_BODY:
-        return _err(413, "Request too large")
-    body = b""
-    async for chunk in request.stream():
-        body += chunk
-        if len(body) > MAX_BODY:
-            return _err(413, "Request too large")
-
-    ip = _client_ip(request)
-    if _rate_limited(ip):
-        return _err(429, "Too many requests")
-
-    try:
-        data = json.loads(body)
-        if not isinstance(data, dict):
-            raise ValueError
-    except ValueError:
-        return _err(422, "Invalid request")
-
-    hp = data.get("website")
-    if hp not in (None, ""):
-        return _ok()  # honeypot: silent drop
-    try:
-        c = Contact(**{k: v for k, v in data.items() if k in Contact.model_fields})
-    except (ValidationError, TypeError):
-        return _err(422, "Invalid request")
-    if time.time() * 1000 - c.t < MIN_FILL_MS:
-        return _ok()  # too fast (or future t): silent drop
-
-    salt = os.environ.get("SALT", "")
-    rec = {
-        "id": str(uuid.uuid4()),
-        "ts": datetime.now(timezone.utc).isoformat(),
-        "fields": c.model_dump(exclude={"t"}),
-        "ip_hash": hashlib.sha256((ip + salt).encode()).hexdigest(),
-    }
-    try:
-        await asyncio.to_thread(_store, rec)
-    except Exception as e:
-        log.error("store failed for %s: %s", rec["id"][:8], type(e).__name__)
-        return _err(500, "Could not save your request")
-    log.info("stored %s", rec["id"])
-    background.add_task(_notify, rec)
-    return _ok()
+app = create_app()

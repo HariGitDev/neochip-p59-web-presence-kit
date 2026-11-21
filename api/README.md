@@ -1,40 +1,30 @@
 # NeoChip contact API
 
-FastAPI service behind the public site's contact form: `POST /api/contact`, `GET /healthz`.
-Accepted submissions are appended (fsynced) to `${DATA_DIR}/submissions.jsonl`; the client IP is stored only as `sha256(ip + SALT)`.
-Honeypot (`website`) or submit-within-3s-of-`t` requests get a normal 200 and are dropped. Limits: 16 KB body (413), 5/hour and 20/day per IP (429, in memory, reset on restart). Personal data is never logged.
+`POST /api/contact` accepts JSON and returns `{"ok": true}` for a stored enquiry or a silently dropped spam submission. Send `t` as the integer result of `Date.now()` captured at page load and leave `website` empty. `GET /healthz` checks that the service is running.
 
-## Environment
+| Variable | Purpose |
+| --- | --- |
+| `DATA_DIR` | Directory for `submissions.jsonl`. Defaults to `/data`. |
+| `SALT` | Secret suffix used to hash client IPs. Set a random value in production. Defaults to empty. |
+| `ALLOWED_ORIGINS` | Comma-separated origins. Defaults to `https://neochipsolutions.com,https://www.neochipsolutions.com,https://testweb.neochipsolutions.com`. |
+| `SMTP_HOST`, `SMTP_PORT` | SMTP endpoint. Port 465 uses implicit TLS. Other ports use STARTTLS. |
+| `SMTP_USER`, `SMTP_PASSWORD` | SMTP credentials. |
+| `MAIL_FROM`, `CONTACT_TO` | SMTP sender and single recipient. Email is enabled when all six SMTP and mail variables are set. |
+| `NTFY_URL` | Optional ntfy topic URL. The notification contains only a short submission ID. |
 
-| Var | Default | Purpose |
-|---|---|---|
-| `DATA_DIR` | `/data` | Directory for `submissions.jsonl` (mount a volume) |
-| `SALT` | empty | Salt for the IP hash; set a random secret |
-| `ALLOWED_ORIGINS` | prod, www, testweb `https://…neochipsolutions.com` | Comma list; a present `Origin` not in it gets 403 |
-| `SMTP_HOST` `SMTP_PORT` `SMTP_USER` `SMTP_PASSWORD` `MAIL_FROM` `CONTACT_TO` | unset | All six required to send mail; `CONTACT_TO` must be exactly one address. Port 465 = SSL, otherwise STARTTLS |
-| `NTFY_URL` | unset | If set, POSTs "New website enquiry <id8>" (no personal data) |
+Run from `api/`:
 
-Client IP is `CF-Connecting-IP` when it is a valid IP, else the peer address.
-
-## Tests
-
-```bash
-cd api
-python -m venv .venv && . .venv/bin/activate
-pip install -r requirements-dev.txt
-python -m pytest tests -v
+```sh
+python -m pip install -r requirements-test.txt
+python -m pytest -q
 ```
 
-## Deployment
+Build from `api/`. Keep one container and one Uvicorn worker because rate limits are in memory. Use the named volume for durable submissions.
 
-Run as a container listening on `0.0.0.0:8060`, published only on the host loopback; cloudflared routes `/api/*` to it.
-
-```bash
-docker build -t neochip-contact-api api/
-docker run -d --name contact-api --restart unless-stopped \
-  -p 127.0.0.1:8060:8060 -v contact-data:/data \
-  -e SALT=... -e SMTP_HOST=... -e SMTP_PORT=587 -e SMTP_USER=... -e SMTP_PASSWORD=... \
-  -e MAIL_FROM=... -e CONTACT_TO=... neochip-contact-api
+```sh
+docker build -t neochip-contact .
+docker run -d --name neochip-contact --env-file /path/to/contact.env \
+  -p 127.0.0.1:8060:8060 -v neochip-contact-data:/data neochip-contact
 ```
 
-The `/data` volume is owned by uid 10001 (the container user). Run a single worker (rate limits are per process).
+On the host, configure cloudflared to route `/api/*` to `http://127.0.0.1:8060` before the website catch-all. The API uses the Cloudflare-provided `CF-Connecting-IP` header when present and falls back to the peer IP.
