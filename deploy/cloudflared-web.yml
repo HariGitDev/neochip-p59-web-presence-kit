@@ -1,0 +1,18 @@
+# Dedicated tunnel for the public website only (neochip-web-public). Runs on BOTH Ashburn
+# and Phoenix as service cloudflared-web, so either host can serve the site. No other app
+# is on this tunnel, so a connector here can never receive traffic for another app.
+# Install: copy to /etc/cloudflared/web.yml next to the tunnel credentials JSON (not in git).
+tunnel: f376711f-6a38-4851-8fd7-a9deb14340ee
+credentials-file: /etc/cloudflared/f376711f-6a38-4851-8fd7-a9deb14340ee.json
+ingress:
+  - hostname: neochipsolutions.com
+    path: ^/api/
+    service: http://127.0.0.1:8060
+  - hostname: www.neochipsolutions.com
+    path: ^/api/
+    service: http://127.0.0.1:8060
+  - hostname: neochipsolutions.com
+    service: http://127.0.0.1:8056
+  - hostname: www.neochipsolutions.com
+    service: http://127.0.0.1:8056
+  - service: http_status:404
