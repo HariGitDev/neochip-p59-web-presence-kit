@@ -18,6 +18,8 @@ COPY deploy/headers.conf /etc/nginx/snippets/headers.conf
 RUN if [ "$SITE_ENV" = "prod" ]; then sed -i 's/noindex, nofollow, noarchive, //' /etc/nginx/snippets/headers.conf; fi
 COPY deploy/nginx.conf   /etc/nginx/conf.d/default.conf
 COPY --from=build /app/dist /usr/share/nginx/html
+COPY deploy/robots.prod.txt /tmp/robots.prod.txt
+RUN if [ "$SITE_ENV" = "prod" ]; then cp /tmp/robots.prod.txt /usr/share/nginx/html/robots.txt; fi && rm -f /tmp/robots.prod.txt
 EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
   CMD wget -qO- http://127.0.0.1/healthz || exit 1
