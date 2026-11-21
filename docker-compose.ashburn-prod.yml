@@ -34,3 +34,33 @@ services:
       options:
         max-size: "10m"
         max-file: "7"
+
+  # Contact-form backend. Published only on loopback; cloudflared routes /api/* to it.
+  # Secrets (SALT, NTFY_URL) live in /opt/neochip-secrets/p59/api.env on the host, never in git.
+  api:
+    build:
+      context: ./api
+    image: p59-api:latest
+    container_name: p59-api
+    restart: unless-stopped
+    network_mode: bridge
+    env_file:
+      - /opt/neochip-secrets/p59/api.env
+    environment:
+      TZ: America/New_York
+      ALLOWED_ORIGINS: "https://neochipsolutions.com,https://www.neochipsolutions.com"
+    ports:
+      - "127.0.0.1:8060:8060"
+    volumes:
+      - p59_contact_data:/data
+    labels:
+      com.neochip.project: "P59"
+      com.neochip.env: "prod"
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "7"
+
+volumes:
+  p59_contact_data:
